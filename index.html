@@ -3,871 +3,1658 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Bluetooth Scanner</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+<title>BT Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg: #080c10;
-    --panel: #0d1520;
-    --border: #1a2e44;
-    --accent: #00e5ff;
-    --accent2: #ff6b35;
-    --green: #00ff88;
-    --dim: #2a4a6a;
-    --text: #c8dff0;
-    --muted: #4a7090;
-    --glow: 0 0 12px rgba(0,229,255,0.4);
-    --glow2: 0 0 12px rgba(0,255,136,0.4);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 16px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Background grid */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .app {
-    position: relative;
-    z-index: 1;
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 28px 20px 60px;
-  }
-
-  /* Header */
-  header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 32px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .logo-block h1 {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 26px;
-    letter-spacing: 0.12em;
-    color: var(--accent);
-    text-shadow: var(--glow);
-    line-height: 1;
-  }
-
-  .logo-block .sub {
-    font-size: 12px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-top: 6px;
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 8px 14px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: all 0.3s;
-    flex-shrink: 0;
-  }
-
-  .status-dot.scanning {
-    background: var(--accent);
-    box-shadow: var(--glow);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-
-  .status-dot.connected {
-    background: var(--green);
-    box-shadow: var(--glow2);
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.7); }
-  }
-
-  /* Control bar */
-  .controls {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 28px;
-    flex-wrap: wrap;
-  }
-
-  .btn {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 12px 24px;
-    border-radius: 3px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .btn-primary {
-    background: transparent;
-    border: 1.5px solid var(--accent);
-    color: var(--accent);
-    box-shadow: inset 0 0 0 0 var(--accent);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: rgba(0,229,255,0.08);
-    box-shadow: var(--glow), inset 0 0 0 0 var(--accent);
-    text-shadow: var(--glow);
-  }
-
-  .btn-primary:active:not(:disabled) {
-    transform: scale(0.97);
-  }
-
-  .btn-secondary {
-    background: transparent;
-    border: 1.5px solid var(--border);
-    color: var(--muted);
-  }
-
-  .btn-secondary:hover:not(:disabled) {
-    border-color: var(--accent2);
-    color: var(--accent2);
-  }
-
-  .btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  .btn-danger {
-    background: transparent;
-    border: 1.5px solid #ff4444;
-    color: #ff4444;
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    background: rgba(255,68,68,0.08);
-  }
-
-  /* Scanning animation */
-  .scan-ring-wrap {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 40px 0 20px;
-    position: relative;
-  }
-
-  .scan-ring-wrap.hidden { display: none; }
-
-  .scan-rings {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .ring {
-    position: absolute;
-    border-radius: 50%;
-    border: 1.5px solid var(--accent);
-    opacity: 0;
-    animation: expand 2.4s ease-out infinite;
-  }
-
-  .ring:nth-child(1) { animation-delay: 0s; }
-  .ring:nth-child(2) { animation-delay: 0.8s; }
-  .ring:nth-child(3) { animation-delay: 1.6s; }
-
-  @keyframes expand {
-    0%   { width: 30px; height: 30px; opacity: 0.8; }
-    100% { width: 120px; height: 120px; opacity: 0; }
-  }
-
-  .scan-icon {
-    width: 38px;
-    height: 38px;
-    color: var(--accent);
-    filter: drop-shadow(0 0 6px rgba(0,229,255,0.6));
-    animation: rotateIcon 3s linear infinite;
-  }
-
-  @keyframes rotateIcon {
-    0%, 100% { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(180deg) scale(0.9); }
-  }
-
-  .scan-label {
-    text-align: center;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    color: var(--accent);
-    letter-spacing: 0.15em;
-    margin-bottom: 32px;
-    animation: blink 1.5s step-end infinite;
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  /* Device list */
-  .section-title {
-    font-size: 11px;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .section-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  .device-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 28px;
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 48px 20px;
-    border: 1px dashed var(--border);
-    border-radius: 4px;
-    color: var(--muted);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 0.1em;
-  }
-
-  .device-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 16px 20px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 16px;
-    transition: all 0.25s;
-    animation: slideIn 0.3s ease-out;
-    cursor: default;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-12px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-
-  .device-card:hover {
-    border-color: var(--dim);
-    background: #101d2e;
-  }
-
-  .device-card.is-connected {
-    border-color: rgba(0,255,136,0.4);
-    background: #0a1e14;
-  }
-
-  .device-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1.5px solid var(--dim);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent);
-    flex-shrink: 0;
-    font-size: 18px;
-  }
-
-  .device-card.is-connected .device-icon {
-    border-color: var(--green);
-    color: var(--green);
-  }
-
-  .device-meta { min-width: 0; }
-
-  .device-name {
-    font-weight: 700;
-    font-size: 16px;
-    color: var(--text);
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .device-id {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 3px;
-    letter-spacing: 0.08em;
-  }
-
-  .device-badge {
-    display: inline-block;
-    font-size: 9px;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 0.12em;
-    padding: 2px 7px;
-    border-radius: 2px;
-    background: rgba(0,229,255,0.1);
-    border: 1px solid rgba(0,229,255,0.25);
-    color: var(--accent);
-    margin-left: 8px;
-    vertical-align: middle;
-  }
-
-  .device-actions {
-    display: flex;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .btn-sm {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 7px 16px;
-    border-radius: 3px;
-    border: 1.5px solid var(--dim);
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-sm.connected-btn { border-color: rgba(255,68,68,0.5); color: #ff6666; }
-  .btn-sm.connected-btn:hover { border-color: #ff4444; }
-  .btn-sm:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  /* Connected panel */
-  .connected-panel {
-    background: var(--panel);
-    border: 1px solid rgba(0,255,136,0.3);
-    border-radius: 4px;
-    padding: 20px;
-    margin-bottom: 28px;
-    animation: fadeIn 0.4s ease-out;
-  }
-
-  .connected-panel.hidden { display: none; }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .conn-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .conn-title {
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--green);
-    text-shadow: var(--glow2);
-    letter-spacing: 0.05em;
-  }
-
-  .conn-subtitle {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-  }
-
-  .services-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-  }
-
-  .service-chip {
-    background: #060e16;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 10px 14px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 0.07em;
-    word-break: break-all;
-  }
-
-  .service-chip .service-label {
-    font-size: 10px;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    margin-bottom: 4px;
-  }
-
-  /* Log */
-  .log-box {
-    background: #050b12;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 14px 16px;
-    max-height: 180px;
-    overflow-y: auto;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    line-height: 1.7;
-    scroll-behavior: smooth;
-  }
-
-  .log-entry {
-    display: flex;
-    gap: 12px;
-    animation: fadeIn 0.2s;
-  }
-
-  .log-time { color: var(--dim); flex-shrink: 0; }
-  .log-msg  { color: var(--muted); }
-  .log-msg.info  { color: var(--accent); }
-  .log-msg.success { color: var(--green); }
-  .log-msg.error { color: #ff5555; }
-  .log-msg.warn  { color: var(--accent2); }
-
-  /* Not supported warning */
-  .warning-box {
-    background: rgba(255,107,53,0.08);
-    border: 1px solid rgba(255,107,53,0.3);
-    border-radius: 4px;
-    padding: 16px 20px;
-    margin-bottom: 24px;
-    font-size: 14px;
-    color: var(--accent2);
-    display: none;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .warning-box.show { display: flex; }
-  .warning-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
-  .warning-text a { color: var(--accent); }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
-
-  /* Responsive */
-  @media (max-width: 500px) {
-    .device-card { grid-template-columns: auto 1fr; }
-    .device-actions { grid-column: 1 / -1; justify-content: flex-end; }
-    header { flex-direction: column; gap: 14px; }
-    .controls { gap: 8px; }
-    .btn { padding: 10px 16px; font-size: 13px; }
-  }
+:root {
+  --bg:       #07090d;
+  --surface:  #0e1420;
+  --surface2: #141d2e;
+  --border:   #1c2d42;
+  --border2:  #243650;
+  --accent:   #3b9eff;
+  --accent-dim: rgba(59,158,255,0.12);
+  --green:    #29e87e;
+  --green-dim: rgba(41,232,126,0.12);
+  --orange:   #ff8c42;
+  --red:      #ff4d6a;
+  --yellow:   #ffd166;
+  --text:     #d0e4f7;
+  --muted:    #4a6a8a;
+  --muted2:   #2a4060;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'IBM Plex Sans', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:15px;}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE ── */
+body::before {
+  content:'';position:fixed;inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.5;
+}
+
+/* ── LAYOUT ── */
+.shell { display:flex; height:100vh; position:relative; z-index:1; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.brand {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-title {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.brand-sub {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  margin-top: 5px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+}
+
+.nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  transition: all 0.18s;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  position: relative;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(59,158,255,0.2);
+}
+.nav-icon { font-size: 16px; flex-shrink:0; width:20px; text-align:center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+.nav-badge.green { background: var(--green); }
+
+.sidebar-footer {
+  padding: 14px 12px;
+  border-top: 1px solid var(--border);
+}
+.conn-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.dot { width:8px; height:8px; border-radius:50%; background: var(--muted2); flex-shrink:0; transition: all .3s; }
+.dot.on  { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 2s ease-in-out infinite; }
+.dot.scanning { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: blink .8s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── MAIN ── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+.topbar {
+  height: 54px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 14px;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.topbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+/* ── BUTTONS ── */
+.btn {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border-radius: 5px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.btn:disabled { opacity:.35; cursor:not-allowed; }
+.btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn-primary:hover:not(:disabled) { background: #5aadff; border-color: #5aadff; }
+.btn-ghost  { background: transparent; color: var(--text); border-color: var(--border2); }
+.btn-ghost:hover:not(:disabled)  { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: transparent; color: var(--red); border-color: rgba(255,77,106,.4); }
+.btn-danger:hover:not(:disabled) { background: rgba(255,77,106,.1); }
+.btn-green  { background: var(--green); color: var(--bg); border-color: var(--green); }
+.btn-green:hover:not(:disabled) { background: #4dffa0; }
+.btn-sm { padding: 5px 11px; font-size: 11px; }
+
+/* ── CONTENT PAGES ── */
+.page { display:none; flex:1; overflow-y:auto; padding:24px; flex-direction:column; gap:20px; }
+.page.active { display:flex; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.card-header .hl { color: var(--text); }
+.card-body { padding: 18px; }
+
+/* ── SCANNER PAGE ── */
+.scan-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+}
+.scan-graphic { position:relative; width:72px; height:72px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.scan-ring { position:absolute; border-radius:50%; border: 1.5px solid var(--accent); opacity:0; }
+.scanning .scan-ring:nth-child(1){animation: scanPulse 2s ease-out infinite 0s;}
+.scanning .scan-ring:nth-child(2){animation: scanPulse 2s ease-out infinite .65s;}
+.scanning .scan-ring:nth-child(3){animation: scanPulse 2s ease-out infinite 1.3s;}
+@keyframes scanPulse{0%{width:20px;height:20px;opacity:.7}100%{width:72px;height:72px;opacity:0}}
+.scan-bt-icon { font-size:28px; position:relative; z-index:1; }
+.scan-hero-text h2 { font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.scan-hero-text p  { font-size:13px; color:var(--muted); line-height:1.6; }
+.scan-hero-actions { margin-left:auto; display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; }
+
+.device-grid { display:flex; flex-direction:column; gap:8px; }
+.empty-msg {
+  text-align:center; padding:48px 20px;
+  border:1px dashed var(--border);
+  border-radius:8px;
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--muted);
+  letter-spacing:.08em;
+  line-height:2;
+}
+
+.device-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: border-color .2s;
+  animation: rowIn .25s ease-out;
+}
+@keyframes rowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.device-row:hover { border-color: var(--border2); }
+.device-row.connected { border-color: rgba(41,232,126,.35); background: rgba(41,232,126,.03); }
+
+.dev-avatar {
+  width:42px; height:42px; border-radius:50%;
+  border:1.5px solid var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; flex-shrink:0; background: var(--surface2);
+}
+.device-row.connected .dev-avatar { border-color: var(--green); }
+
+.dev-info { flex:1; min-width:0; }
+.dev-name {
+  font-weight:700; font-size:15px; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  display:flex; align-items:center; gap:8px;
+}
+.dev-id { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:3px; }
+.tag {
+  display:inline-block; font-size:9px; font-family:var(--mono); letter-spacing:.1em;
+  padding:2px 7px; border-radius:3px; font-weight:500; flex-shrink:0;
+}
+.tag-esp   { background:rgba(59,158,255,.15);  border:1px solid rgba(59,158,255,.3);  color:var(--accent);  }
+.tag-green { background:rgba(41,232,126,.15);  border:1px solid rgba(41,232,126,.3);  color:var(--green);  }
+.tag-muted { background:rgba(74,106,138,.12);  border:1px solid rgba(74,106,138,.3);  color:var(--muted);  }
+.tag-orange{ background:rgba(255,140,66,.15);  border:1px solid rgba(255,140,66,.3);  color:var(--orange); }
+
+.dev-actions { display:flex; gap:6px; flex-shrink:0; }
+
+/* ── TERMINAL PAGE ── */
+.term-wrap { display:flex; flex-direction:column; gap:0; flex:1; height:100%; }
+
+.term-toolbar {
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-bottom:none;
+  border-radius:8px 8px 0 0;
+  padding:10px 16px;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+}
+.term-screen {
+  background:#060b10;
+  border:1px solid var(--border);
+  flex:1;
+  min-height:320px;
+  max-height:420px;
+  overflow-y:auto;
+  font-family:var(--mono);
+  font-size:12.5px;
+  line-height:1.75;
+  padding:14px 16px;
+}
+.term-line { display:flex; gap:10px; animation: fadeIn .15s; }
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.term-ts   { color:#2a4060; flex-shrink:0; }
+.term-src  { flex-shrink:0; min-width:44px; }
+.term-src.tx { color:var(--accent); }
+.term-src.rx { color:var(--green); }
+.term-src.sys{ color:var(--orange);}
+.term-src.err{ color:var(--red);   }
+.term-msg  { color:#8ab0cc; word-break:break-all; }
+.term-msg.rx-msg { color:var(--green); }
+.term-msg.err-msg{ color:var(--red); }
+
+.term-input-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.term-input {
+  flex:1;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.term-input:focus { border-color: var(--accent); }
+.term-input::placeholder { color: var(--muted2); }
+
+.cmd-presets {
+  display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px;
+  background: var(--surface2);
+  border:1px solid var(--border);
+  border-top:none;
+  border-radius:0 0 8px 8px;
+}
+.cmd-preset-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+  letter-spacing: .04em;
+}
+.cmd-preset-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* ── SETTINGS PAGE ── */
+.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:760px){ .settings-grid{grid-template-columns:1fr;} }
+
+.setting-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow:hidden;
+}
+.setting-group-title {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.setting-row {
+  display:flex; align-items:center; gap:12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label { flex:1; }
+.setting-label strong { display:block; font-size:13px; color:var(--text); font-weight:600; }
+.setting-label span   { font-size:11px; color:var(--muted); margin-top:2px; display:block; }
+
+.select, .input-field {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color .2s;
+  min-width: 120px;
+}
+.select:focus, .input-field:focus { border-color: var(--accent); }
+.select option { background: var(--surface); }
+
+/* toggle */
+.toggle-wrap { position:relative; width:40px; height:22px; flex-shrink:0; }
+.toggle-wrap input { opacity:0; width:0; height:0; position:absolute; }
+.toggle-slider {
+  position:absolute; inset:0; border-radius:11px;
+  background: var(--muted2); cursor:pointer; transition:.25s;
+}
+.toggle-slider::after {
+  content:''; position:absolute; width:16px; height:16px;
+  background:#fff; border-radius:50%; top:3px; left:3px; transition:.25s;
+}
+.toggle-wrap input:checked + .toggle-slider { background: var(--accent); }
+.toggle-wrap input:checked + .toggle-slider::after { transform:translateX(18px); }
+
+/* ── PROFILES PAGE ── */
+.profiles-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.profiles-header h2 { font-size:16px; font-weight:700; }
+.profile-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+
+.profile-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  animation: rowIn .25s ease-out;
+}
+.profile-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.profile-card.active-profile { border-color: rgba(59,158,255,.5); background: rgba(59,158,255,.05); }
+.profile-card-name { font-size:15px; font-weight:700; color:var(--text); margin-bottom:5px; display:flex; align-items:center; gap:8px; }
+.profile-card-desc { font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:12px; }
+.profile-card-meta { display:flex; gap:6px; flex-wrap:wrap; }
+.profile-card-actions { display:flex; gap:6px; margin-top:14px; }
+.profile-active-badge { font-size:10px; font-family:var(--mono); padding:2px 8px; border-radius:3px; background:var(--accent-dim); border:1px solid rgba(59,158,255,.3); color:var(--accent); }
+
+/* Profile modal */
+.modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.7);
+  backdrop-filter:blur(4px); z-index:100;
+  align-items:center; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  width: min(540px,95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalIn .2s ease-out;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h3 { font-size:15px; font-weight:700; }
+.modal-close { background:none; border:none; color:var(--muted); cursor:pointer; font-size:20px; line-height:1; padding:2px 6px; border-radius:4px; }
+.modal-close:hover { color:var(--text); background:var(--surface2); }
+.modal-body { padding: 20px 22px; display:flex; flex-direction:column; gap:14px; }
+.modal-footer { padding: 14px 22px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+.form-field { display:flex; flex-direction:column; gap:5px; }
+.form-label { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+.form-input, .form-textarea, .form-select {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size:13px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color .2s;
+  width:100%;
+}
+.form-input:focus,.form-textarea:focus,.form-select:focus{border-color:var(--accent);}
+.form-textarea { resize:vertical; min-height:80px; font-family:var(--mono); }
+.form-select option { background: var(--surface); }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+/* ── LOG / Toast ── */
+.toast-stack { position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column-reverse; gap:8px; z-index:200; }
+.toast {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 10px 16px;
+  font-size:12.5px;
+  font-weight:600;
+  color: var(--text);
+  display:flex; align-items:center; gap:8px;
+  animation: toastIn .25s ease-out;
+  max-width: 300px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast.success { border-color: rgba(41,232,126,.4); color:var(--green); }
+.toast.error   { border-color: rgba(255,77,106,.4);  color:var(--red);   }
+.toast.info    { border-color: rgba(59,158,255,.4);  color:var(--accent);}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .sidebar{width:54px;}
+  .brand-title,.brand-sub,.nav-item span,.nav-badge{display:none;}
+  .nav-item{justify-content:center;padding:12px;}
+  .nav-icon{width:auto;}
+  .scan-hero{flex-direction:column;align-items:flex-start;gap:16px;}
+  .scan-hero-actions{margin-left:0;width:100%;}
+  .topbar-title{font-size:12px;}
+}
+
+/* ── MISC ── */
+hr.divider { border:none; border-top:1px solid var(--border); margin:2px 0; }
+.flex-center { display:flex; align-items:center; gap:8px; }
+.ml-auto { margin-left:auto; }
+.text-muted { color:var(--muted); font-size:12px; }
+.monospace { font-family:var(--mono); }
 </style>
 </head>
 <body>
-<div class="app">
 
-  <header>
-    <div class="logo-block">
-      <h1>⬡ BLUETOOTH SCANNER</h1>
-      <div class="sub">Web Bluetooth · Scan &amp; Connect</div>
-    </div>
-    <div class="status-pill">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">IDLE</span>
-    </div>
-  </header>
+<div class="shell">
 
-  <!-- Browser warning -->
-  <div class="warning-box" id="warningBox">
-    <span class="warning-icon">⚠</span>
-    <div class="warning-text">
-      <strong>Web Bluetooth not supported</strong> in this browser.<br/>
-      Use <strong>Chrome</strong> or <strong>Edge</strong> on desktop/Android.
-      <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API#browser_compatibility" target="_blank">Browser compatibility →</a>
-    </div>
+<!-- ═══════════════════════════════════ SIDEBAR ═══════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-title">⬡ BT MANAGER</div>
+    <div class="brand-sub">Web Bluetooth</div>
   </div>
-
-  <!-- Controls -->
-  <div class="controls">
-    <button class="btn btn-primary" id="scanBtn" onclick="startScan()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      SCAN ALL DEVICES
+  <nav class="nav">
+    <button class="nav-item active" onclick="goPage('scanner',this)">
+      <span class="nav-icon">📡</span><span>Scanner</span>
+      <span class="nav-badge" id="devBadge" style="display:none">0</span>
     </button>
-    <button class="btn btn-secondary" id="clearBtn" onclick="clearDevices()">CLEAR LIST</button>
-  </div>
-
-  <!-- Scanning animation -->
-  <div class="scan-ring-wrap hidden" id="scanAnim">
-    <div class="scan-rings">
-      <div class="ring"></div>
-      <div class="ring"></div>
-      <div class="ring"></div>
-      <svg class="scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M8.5 6.5A5 5 0 0 1 12 5a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-3.5-1.5"/>
-        <path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>
-        <path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
-      </svg>
+    <button class="nav-item" onclick="goPage('terminal',this)">
+      <span class="nav-icon">💻</span><span>Terminal</span>
+    </button>
+    <button class="nav-item" onclick="goPage('settings',this)">
+      <span class="nav-icon">⚙️</span><span>Settings</span>
+    </button>
+    <button class="nav-item" onclick="goPage('profiles',this)">
+      <span class="nav-icon">🗂️</span><span>Profiles</span>
+      <span class="nav-badge green" id="profBadge">0</span>
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="conn-status">
+      <div class="dot" id="globalDot"></div>
+      <span id="globalStatus">IDLE</span>
     </div>
   </div>
-  <div class="scan-label hidden" id="scanLabel">SCANNING FOR BLUETOOTH DEVICES...</div>
+</aside>
 
-  <!-- Connected device panel -->
-  <div class="connected-panel hidden" id="connectedPanel">
-    <div class="conn-header">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="2"><path d="M12 22V12M12 12L8 8M12 12L16 8M8 16l4 4 4-4"/></svg>
-      <div>
-        <div class="conn-title" id="connName">–</div>
-        <div class="conn-subtitle" id="connSub">CONNECTED</div>
+<!-- ═══════════════════════════════════ MAIN ════════════════════════════════════ -->
+<div class="main">
+
+<!-- Topbar -->
+<div class="topbar">
+  <span id="topbarIcon">📡</span>
+  <span class="topbar-title" id="topbarTitle">Scanner</span>
+  <div class="topbar-actions" id="topbarActions">
+    <button class="btn btn-primary" id="scanBtn" onclick="startScan()">⊕ Scan</button>
+    <button class="btn btn-ghost" onclick="clearDevices()">Clear</button>
+  </div>
+</div>
+
+<!-- ═══════════════ SCANNER PAGE ═══════════════ -->
+<div class="page active" id="page-scanner">
+
+  <div class="scan-hero" id="scanHero">
+    <div class="scan-graphic" id="scanGraphic">
+      <div class="scan-ring"></div>
+      <div class="scan-ring"></div>
+      <div class="scan-ring"></div>
+      <span class="scan-bt-icon">🔵</span>
+    </div>
+    <div class="scan-hero-text">
+      <h2>Bluetooth Device Scanner</h2>
+      <p>Scan for all nearby Bluetooth devices.<br/>Select a device to connect and explore its GATT services.</p>
+    </div>
+    <div class="scan-hero-actions">
+      <button class="btn btn-primary" onclick="startScan()">⊕ Scan Devices</button>
+      <button class="btn btn-ghost" onclick="clearDevices()">✕ Clear</button>
+    </div>
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span class="text-muted monospace" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;">
+        Discovered Devices <span id="countLabel"></span>
+      </span>
+      <div style="display:flex;gap:6px;">
+        <input class="input-field" style="width:160px;padding:5px 10px;font-size:12px;" placeholder="Filter…" oninput="filterDevices(this.value)" id="filterInput"/>
       </div>
-      <button class="btn btn-danger" style="margin-left:auto;font-size:12px;padding:8px 14px;" onclick="disconnectActive()">DISCONNECT</button>
     </div>
-    <div class="section-title" style="margin-bottom:10px">Services Discovered</div>
-    <div class="services-grid" id="servicesGrid">
-      <div class="service-chip"><div class="service-label">Status</div>Discovering services…</div>
+    <div class="device-grid" id="deviceGrid">
+      <div class="empty-msg">No devices found.<br/>Press <strong>⊕ Scan</strong> to discover nearby Bluetooth devices.</div>
     </div>
   </div>
 
-  <!-- Device list -->
-  <div class="section-title">ESP32 Devices Found <span id="devCount"></span></div>
-  <div class="device-list" id="deviceList">
-    <div class="empty-state" id="emptyState">
-      No devices found yet.<br/>Press SCAN to discover nearby Bluetooth devices.
+  <!-- Services panel (shown after connect) -->
+  <div id="servicesCard" style="display:none;" class="card">
+    <div class="card-header">
+      🔗 <span class="hl" id="svcCardTitle">–</span> &nbsp;·&nbsp; GATT Services
+      <span class="ml-auto">
+        <button class="btn btn-danger btn-sm" onclick="disconnectActive()">Disconnect</button>
+      </span>
+    </div>
+    <div class="card-body">
+      <div id="svcList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;"></div>
     </div>
   </div>
-
-  <!-- Log -->
-  <div class="section-title">System Log</div>
-  <div class="log-box" id="logBox"></div>
 
 </div>
 
+<!-- ═══════════════ TERMINAL PAGE ═══════════════ -->
+<div class="page" id="page-terminal">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+    <span class="text-muted" style="font-size:12px;">Connected to: <strong id="termDevName" style="color:var(--accent)">–</strong></span>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-ghost btn-sm" onclick="clearTerminal()">Clear</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportLog()">Export Log</button>
+    </div>
+  </div>
+
+  <div class="term-wrap">
+    <div class="term-toolbar">
+      <span style="font-size:11px;font-family:var(--mono);color:var(--muted);letter-spacing:.08em;">ENCODING</span>
+      <select class="select" id="encSelect" style="min-width:90px;">
+        <option>UTF-8</option>
+        <option>HEX</option>
+        <option>ASCII</option>
+      </select>
+      <span style="font-size:11px;font-family:var(--mono);color:var(--muted);letter-spacing:.08em;">LINE END</span>
+      <select class="select" id="lineEndSelect" style="min-width:80px;">
+        <option value="\n">LF</option>
+        <option value="\r\n">CR+LF</option>
+        <option value="\r">CR</option>
+        <option value="">None</option>
+      </select>
+      <label class="toggle-wrap" title="Auto-scroll">
+        <input type="checkbox" id="autoScrollToggle" checked/>
+        <div class="toggle-slider"></div>
+      </label>
+      <span style="font-size:11px;font-family:var(--mono);color:var(--muted);">AUTOSCROLL</span>
+      <div class="ml-auto" style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="sendAtCommand('AT')">AT Ping</button>
+        <button class="btn btn-ghost btn-sm" onclick="sendAtCommand('AT+RST')">Reset</button>
+        <button class="btn btn-ghost btn-sm" onclick="sendAtCommand('AT+GMR')">Version</button>
+      </div>
+    </div>
+
+    <div class="term-screen" id="termScreen">
+      <div class="term-line">
+        <span class="term-ts">00:00:00</span>
+        <span class="term-src sys">SYS</span>
+        <span class="term-msg">Terminal ready. Connect a device to begin communication.</span>
+      </div>
+    </div>
+
+    <div class="term-input-bar">
+      <span style="font-family:var(--mono);font-size:13px;color:var(--muted);">&gt;&gt;</span>
+      <input class="term-input" id="termInput" placeholder="Type command or message…"
+        onkeydown="termKeydown(event)"/>
+      <button class="btn btn-primary btn-sm" onclick="sendTermMessage()">SEND</button>
+    </div>
+
+    <div class="cmd-presets" id="cmdPresets">
+      <!-- populated from profile or defaults -->
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ SETTINGS PAGE ═══════════════ -->
+<div class="page" id="page-settings">
+
+  <div class="settings-grid">
+
+    <div class="setting-group">
+      <div class="setting-group-title">🔵 Bluetooth</div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Show Unnamed Devices</strong>
+          <span>Include devices with no name in scan results</span>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="showUnnamed" checked onchange="saveSetting()"/>
+          <div class="toggle-slider"></div>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Optional Services</strong>
+          <span>Comma-separated UUIDs to request on scan</span>
+        </div>
+        <input class="input-field" id="optServices" style="width:190px;" value="0000ffe0-0000-1000-8000-00805f9b34fb,6e400001-b5a3-f393-e0a9-e50e24dcca9e" onchange="saveSetting()"/>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Auto-reconnect</strong>
+          <span>Try to reconnect if connection drops</span>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="autoReconnect" onchange="saveSetting()"/>
+          <div class="toggle-slider"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">💻 Terminal</div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Default Encoding</strong>
+          <span>How to encode outgoing messages</span>
+        </div>
+        <select class="select" id="defEncoding" onchange="saveSetting()">
+          <option>UTF-8</option><option>HEX</option><option>ASCII</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Default Line Ending</strong>
+          <span>Appended to every sent message</span>
+        </div>
+        <select class="select" id="defLineEnd" onchange="saveSetting()">
+          <option value="\n">LF (\n)</option>
+          <option value="\r\n">CR+LF</option>
+          <option value="\r">CR (\r)</option>
+          <option value="">None</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Max Log Lines</strong>
+          <span>Terminal history limit</span>
+        </div>
+        <input class="input-field" id="maxLines" type="number" style="width:80px;" value="500" onchange="saveSetting()"/>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Timestamp Format</strong>
+        </div>
+        <select class="select" id="tsFormat" onchange="saveSetting()">
+          <option value="hms">HH:MM:SS</option>
+          <option value="ms">+ms elapsed</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">🎨 Appearance</div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Accent Color</strong>
+        </div>
+        <input type="color" id="accentColor" value="#3b9eff" style="width:42px;height:32px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);cursor:pointer;padding:2px;" onchange="applyAccent(this.value)"/>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Compact Mode</strong>
+          <span>Reduce padding and font sizes</span>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="compactMode" onchange="applyCompact(this.checked)"/>
+          <div class="toggle-slider"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">💾 Data</div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Export Settings</strong>
+          <span>Download settings as JSON</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="exportSettings()">Export</button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Import Settings</strong>
+          <span>Restore from JSON file</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">Import</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importSettings(this)"/>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Reset All</strong>
+          <span>Clear all settings and profiles</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="resetAll()">Reset</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ PROFILES PAGE ═══════════════ -->
+<div class="page" id="page-profiles">
+
+  <div class="profiles-header">
+    <div>
+      <h2>Device Profiles</h2>
+      <p class="text-muted" style="margin-top:4px;">Custom command sets and settings per device type.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openProfileModal()">+ New Profile</button>
+  </div>
+
+  <div class="profile-grid" id="profileGrid"></div>
+
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ═══════════════════════════════════ PROFILE MODAL ══════════════════════════════════ -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">New Profile</h3>
+      <button class="modal-close" onclick="closeProfileModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Profile Name *</label>
+          <input class="form-input" id="pName" placeholder="ESP32 Dev Board"/>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Device Type</label>
+          <select class="form-select" id="pType">
+            <option value="esp32">ESP32</option>
+            <option value="esp8266">ESP8266</option>
+            <option value="arduino">Arduino</option>
+            <option value="hm10">HM-10 BLE</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="pDesc" placeholder="Short description of this profile"/>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Encoding</label>
+          <select class="form-select" id="pEncoding">
+            <option>UTF-8</option><option>HEX</option><option>ASCII</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Line Ending</label>
+          <select class="form-select" id="pLineEnd">
+            <option value="\n">LF</option>
+            <option value="\r\n">CR+LF</option>
+            <option value="\r">CR</option>
+            <option value="">None</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label">GATT Service UUID (optional)</label>
+        <input class="form-input monospace" id="pServiceUUID" placeholder="6e400001-b5a3-f393-e0a9-e50e24dcca9e"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label">TX Characteristic UUID</label>
+        <input class="form-input monospace" id="pTxUUID" placeholder="6e400002-b5a3-f393-e0a9-e50e24dcca9e"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label">RX Characteristic UUID</label>
+        <input class="form-input monospace" id="pRxUUID" placeholder="6e400003-b5a3-f393-e0a9-e50e24dcca9e"/>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Quick Commands (one per line: label=command)</label>
+        <textarea class="form-textarea" id="pCommands" placeholder="AT Ping=AT&#10;Reset=AT+RST&#10;Version=AT+GMR&#10;LED On=LED1&#10;LED Off=LED0"></textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Connect Script (commands sent on connect, one per line)</label>
+        <textarea class="form-textarea" id="pInitScript" placeholder="AT&#10;AT+GMR" style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="pNotes" placeholder="Any notes about this device/profile…" style="min-height:60px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeProfileModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
 <script>
-  // ─── State ───────────────────────────────────────────────
-  const devices = new Map();     // id → { device, gatt, name, connected }
-  let activeDevice = null;
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+const state = {
+  devices: new Map(),        // id → { device, gatt, name, connected }
+  activeId: null,
+  txChar: null,
+  rxChar: null,
+  termHistory: [],
+  historyIndex: -1,
+  editingProfileId: null,
+  startTime: Date.now(),
+};
 
-  // ─── UI helpers ─────────────────────────────────────────
-  const $ = id => document.getElementById(id);
+// ═══════════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════════
+const LS = {
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  get(k,fb){ try{ const v=localStorage.getItem(k); return v!==null?JSON.parse(v):fb; }catch(e){ return fb; } },
+  del(k){ localStorage.removeItem(k); }
+};
 
-  function setStatus(state, text) {
-    const dot = $('statusDot');
-    dot.className = 'status-dot' + (state ? ' ' + state : '');
-    $('statusText').textContent = text;
+// ═══════════════════════════════════════════════════════════
+// SETTINGS LOAD/SAVE
+// ═══════════════════════════════════════════════════════════
+function loadSettings() {
+  const s = LS.get('bt_settings', {});
+  const si = id => document.getElementById(id);
+  if (s.showUnnamed  !== undefined) si('showUnnamed').checked  = s.showUnnamed;
+  if (s.optServices) si('optServices').value = s.optServices;
+  if (s.autoReconnect !== undefined) si('autoReconnect').checked = s.autoReconnect;
+  if (s.defEncoding)  si('defEncoding').value  = s.defEncoding;
+  if (s.defLineEnd  !== undefined) si('defLineEnd').value   = s.defLineEnd;
+  if (s.maxLines)     si('maxLines').value     = s.maxLines;
+  if (s.tsFormat)     si('tsFormat').value     = s.tsFormat;
+  if (s.accentColor)  { si('accentColor').value = s.accentColor; applyAccent(s.accentColor); }
+  if (s.compactMode !== undefined) { si('compactMode').checked = s.compactMode; applyCompact(s.compactMode); }
+  // sync terminal selects with defaults
+  si('encSelect').value = s.defEncoding || 'UTF-8';
+  si('lineEndSelect').value = s.defLineEnd !== undefined ? s.defLineEnd : '\n';
+}
+function saveSetting() {
+  const val = id => document.getElementById(id);
+  LS.set('bt_settings', {
+    showUnnamed:  val('showUnnamed').checked,
+    optServices:  val('optServices').value,
+    autoReconnect:val('autoReconnect').checked,
+    defEncoding:  val('defEncoding').value,
+    defLineEnd:   val('defLineEnd').value,
+    maxLines:     +val('maxLines').value,
+    tsFormat:     val('tsFormat').value,
+    accentColor:  val('accentColor').value,
+    compactMode:  val('compactMode').checked,
+  });
+  toast('Settings saved', 'success');
+}
+function applyAccent(hex) {
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent-dim', hex+'22');
+  LS.set('bt_settings', { ...LS.get('bt_settings',{}), accentColor: hex });
+}
+function applyCompact(on) {
+  document.documentElement.style.setProperty('--compact', on ? '1' : '0');
+  document.body.style.fontSize = on ? '13px' : '15px';
+}
+function exportSettings() {
+  const data = {
+    settings: LS.get('bt_settings',{}),
+    profiles: LS.get('bt_profiles',[]),
+  };
+  dl(JSON.stringify(data,null,2), 'bt-manager-settings.json', 'application/json');
+  toast('Settings exported', 'success');
+}
+function importSettings(input) {
+  const file = input.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (d.settings) LS.set('bt_settings', d.settings);
+      if (d.profiles)  LS.set('bt_profiles', d.profiles);
+      loadSettings(); renderProfiles();
+      toast('Settings imported!', 'success');
+    } catch(e) { toast('Invalid JSON file', 'error'); }
+  };
+  r.readAsText(file);
+  input.value = '';
+}
+function resetAll() {
+  if (!confirm('Reset all settings and profiles? This cannot be undone.')) return;
+  localStorage.removeItem('bt_settings');
+  localStorage.removeItem('bt_profiles');
+  loadSettings(); renderProfiles();
+  toast('Reset complete', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+const PAGE_META = {
+  scanner:  { icon:'📡', title:'Scanner',  actions:'scannerActions' },
+  terminal: { icon:'💻', title:'Terminal', actions:'termActions'    },
+  settings: { icon:'⚙️', title:'Settings', actions:'settingsActions'},
+  profiles: { icon:'🗂️', title:'Profiles', actions:'profilesActions'},
+};
+function goPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  const m = PAGE_META[id];
+  document.getElementById('topbarIcon').textContent  = m.icon;
+  document.getElementById('topbarTitle').textContent = m.title;
+  updateTopbarActions(id);
+}
+function updateTopbarActions(page) {
+  const bar = document.getElementById('topbarActions');
+  if (page === 'scanner') {
+    bar.innerHTML = `<button class="btn btn-primary" onclick="startScan()">⊕ Scan</button>
+                     <button class="btn btn-ghost" onclick="clearDevices()">Clear</button>`;
+  } else if (page === 'terminal') {
+    bar.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="clearTerminal()">Clear</button>
+                     <button class="btn btn-ghost btn-sm" onclick="exportLog()">Export</button>`;
+  } else if (page === 'profiles') {
+    bar.innerHTML = `<button class="btn btn-primary" onclick="openProfileModal()">+ New Profile</button>`;
+  } else {
+    bar.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="saveSetting()">Save</button>`;
   }
+}
 
-  function log(msg, type = 'default') {
-    const box = $('logBox');
-    const now = new Date();
-    const ts = now.toTimeString().slice(0,8);
-    const el = document.createElement('div');
-    el.className = 'log-entry';
-    el.innerHTML = `<span class="log-time">${ts}</span><span class="log-msg ${type}">${msg}</span>`;
-    box.appendChild(el);
-    box.scrollTop = box.scrollHeight;
-    // keep max 120 lines
-    while (box.children.length > 120) box.removeChild(box.firstChild);
+// ═══════════════════════════════════════════════════════════
+// BLUETOOTH SCAN
+// ═══════════════════════════════════════════════════════════
+async function startScan() {
+  if (!navigator.bluetooth) {
+    toast('Web Bluetooth not supported. Use Chrome or Edge.','error'); return;
   }
+  setGlobalStatus('scanning','SCANNING');
+  document.getElementById('scanGraphic').classList.add('scanning');
+  document.getElementById('scanBtn') && (document.getElementById('scanBtn').disabled = true);
 
-  function showScanAnim(show) {
-    $('scanAnim').classList.toggle('hidden', !show);
-    $('scanLabel').classList.toggle('hidden', !show);
+  const svcStr = document.getElementById('optServices').value;
+  const optSvcs = svcStr.split(',').map(s=>s.trim()).filter(Boolean);
+
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [
+        '0000180a-0000-1000-8000-00805f9b34fb',
+        '0000180f-0000-1000-8000-00805f9b34fb',
+        '00001800-0000-1000-8000-00805f9b34fb',
+        '00001801-0000-1000-8000-00805f9b34fb',
+        ...optSvcs
+      ]
+    });
+
+    const showUnnamed = document.getElementById('showUnnamed').checked;
+    if (!device.name && !showUnnamed) {
+      toast('Unnamed device skipped (see Settings)', 'info'); return;
+    }
+
+    if (!state.devices.has(device.id)) {
+      state.devices.set(device.id, {
+        device,
+        gatt: null,
+        name: device.name || `Unknown (${device.id.slice(0,8)})`,
+        connected: false,
+      });
+      device.addEventListener('gattserverdisconnected', () => onDisconnect(device.id));
+    }
+    renderDevices();
+    toast(`Found: ${device.name || device.id}`, 'success');
+  } catch(e) {
+    if (e.name !== 'NotFoundError') toast('Scan error: ' + e.message, 'error');
+    else toast('No device selected', 'info');
+  } finally {
+    setGlobalStatus('','IDLE');
+    document.getElementById('scanGraphic').classList.remove('scanning');
+    const b = document.getElementById('scanBtn');
+    if (b) b.disabled = false;
   }
+}
 
-  function updateCount() {
-    const c = devices.size;
-    $('devCount').textContent = c > 0 ? `(${c})` : '';
+// ═══════════════════════════════════════════════════════════
+// RENDER DEVICES
+// ═══════════════════════════════════════════════════════════
+function renderDevices(filter='') {
+  const grid = document.getElementById('deviceGrid');
+  grid.innerHTML = '';
+  const fl = filter.toLowerCase();
+  let shown = 0;
+  for (const [id, info] of state.devices) {
+    if (fl && !info.name.toLowerCase().includes(fl) && !id.toLowerCase().includes(fl)) continue;
+    shown++;
+    const isConn = info.connected;
+    const badge = getBadge(info.name);
+    const row = document.createElement('div');
+    row.className = 'device-row' + (isConn ? ' connected' : '');
+    row.id = 'drow-' + id;
+    row.innerHTML = `
+      <div class="dev-avatar">${isConn ? '✓' : getDevIcon(info.name)}</div>
+      <div class="dev-info">
+        <div class="dev-name">
+          ${esc(info.name)}
+          ${badge ? `<span class="tag ${badge.cls}">${badge.label}</span>` : ''}
+          ${isConn ? '<span class="tag tag-green">CONNECTED</span>' : ''}
+        </div>
+        <div class="dev-id">${esc(id)}</div>
+      </div>
+      <div class="dev-actions">
+        ${isConn
+          ? `<button class="btn btn-danger btn-sm" onclick="disconnectDevice('${id}')">Disconnect</button>
+             <button class="btn btn-ghost btn-sm" onclick="goTerminal('${id}')">Terminal</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="connectDevice('${id}')">Connect</button>
+             <button class="btn btn-ghost btn-sm" onclick="removeDevice('${id}')">✕</button>`
+        }
+      </div>`;
+    grid.appendChild(row);
   }
+  if (shown === 0) {
+    grid.innerHTML = state.devices.size === 0
+      ? '<div class="empty-msg">No devices found.<br/>Press <strong>⊕ Scan</strong> to discover nearby Bluetooth devices.</div>'
+      : '<div class="empty-msg">No devices match filter.</div>';
+  }
+  const c = state.devices.size;
+  document.getElementById('countLabel').textContent = c > 0 ? `(${c})` : '';
+  const badge = document.getElementById('devBadge');
+  badge.style.display = c > 0 ? '' : 'none';
+  badge.textContent = c;
+}
 
-  function renderDevices() {
-    const list = $('deviceList');
+function filterDevices(v) { renderDevices(v); }
+
+function getBadge(name='') {
+  const n = name.toLowerCase();
+  if (n.includes('esp32')||n.includes('espressif')) return {label:'ESP32',cls:'tag-esp'};
+  if (n.includes('esp8266')||n.includes('esp82'))   return {label:'ESP8266',cls:'tag-esp'};
+  if (n.includes('arduino'))  return {label:'ARDUINO', cls:'tag-orange'};
+  if (n.includes('raspberry')||n.includes('rpi'))   return {label:'RPi', cls:'tag-orange'};
+  if (n.includes('hm-10')||n.includes('ble serial')) return {label:'HM-10',cls:'tag-muted'};
+  return null;
+}
+function getDevIcon(name='') {
+  const n = name.toLowerCase();
+  if (n.includes('esp') || n.includes('arduino')) return '🔧';
+  if (n.includes('phone')||n.includes('iphone')||n.includes('android')) return '📱';
+  if (n.includes('head') || n.includes('ear')) return '🎧';
+  if (n.includes('speaker')) return '🔊';
+  return '⬡';
+}
+
+function clearDevices() {
+  for (const [id, info] of state.devices) {
+    if (info.connected) info.device.gatt.disconnect();
+  }
+  state.devices.clear();
+  state.activeId = null;
+  document.getElementById('servicesCard').style.display = 'none';
+  renderDevices();
+  setGlobalStatus('','IDLE');
+}
+function removeDevice(id) {
+  state.devices.delete(id);
+  renderDevices();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONNECT / DISCONNECT
+// ═══════════════════════════════════════════════════════════
+async function connectDevice(id) {
+  const info = state.devices.get(id); if (!info) return;
+  setGlobalStatus('scanning','CONNECTING');
+  toast(`Connecting to ${info.name}…`, 'info');
+
+  // Grey out buttons
+  document.querySelectorAll('.btn-sm').forEach(b => b.disabled = true);
+
+  try {
+    const server = await info.device.gatt.connect();
+    info.gatt = server;
+    info.connected = true;
+    state.activeId = id;
+
+    setGlobalStatus('on', 'CONNECTED');
+    toast(`Connected: ${info.name}`, 'success');
+    renderDevices();
+    showServicesCard(info, server);
+
+    // Try to set up TX/RX from matching profile
+    await setupCharacteristics(info, server);
+
+    // Run profile init script
+    runInitScript(info.name);
+
+  } catch(e) {
+    toast('Connect failed: ' + e.message, 'error');
+    setGlobalStatus('','IDLE');
+    renderDevices();
+  }
+}
+
+async function showServicesCard(info, server) {
+  const card = document.getElementById('servicesCard');
+  card.style.display = '';
+  document.getElementById('svcCardTitle').textContent = info.name;
+  const list = document.getElementById('svcList');
+  list.innerHTML = '<span class="text-muted monospace" style="font-size:11px;">Discovering services…</span>';
+  try {
+    const svcs = await server.getPrimaryServices();
     list.innerHTML = '';
-    if (devices.size === 0) {
-      list.innerHTML = '<div class="empty-state">No devices found yet.<br/>Press SCAN to discover nearby Bluetooth devices.</div>';
-      updateCount();
+    if (svcs.length === 0) {
+      list.innerHTML = '<span class="text-muted">No services found</span>';
       return;
     }
-    for (const [id, info] of devices) {
-      const isConnected = info.connected;
-      const badge = getDeviceBadge(info.name);
-      const card = document.createElement('div');
-      card.className = 'device-card' + (isConnected ? ' is-connected' : '');
-      card.id = 'card-' + id;
-      card.innerHTML = `
-        <div class="device-icon">${isConnected ? '✓' : '⬡'}</div>
-        <div class="device-meta">
-          <div class="device-name">${escHtml(info.name)}${badge ? `<span class="device-badge">${badge}</span>` : ''}</div>
-          <div class="device-id">ID: ${escHtml(id)}</div>
-        </div>
-        <div class="device-actions">
-          ${isConnected
-            ? `<button class="btn-sm connected-btn" onclick="disconnectDevice('${id}')">DISCONNECT</button>`
-            : `<button class="btn-sm" onclick="connectDevice('${id}')">CONNECT</button>`
-          }
-        </div>`;
-      list.appendChild(card);
+    for (const s of svcs) {
+      const chip = document.createElement('div');
+      chip.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:10px 12px;font-family:var(--mono);font-size:11px;word-break:break-all;';
+      const label = resolveService(s.uuid);
+      chip.innerHTML = `<div style="color:var(--accent);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">${label}</div>${esc(s.uuid)}`;
+      list.appendChild(chip);
     }
-    updateCount();
+    termLog(`Discovered ${svcs.length} GATT service(s) on ${info.name}`, 'sys');
+  } catch(e) {
+    list.innerHTML = `<span style="color:var(--red);font-size:12px;">Error: ${esc(e.message)}</span>`;
   }
+}
 
-  function getDeviceBadge(name) {
-    if (!name) return 'UNKNOWN';
-    const n = name.toLowerCase();
-    if (n.includes('esp32') || n.includes('esp_') || n.includes('espressif')) return 'ESP32';
-    if (n.includes('esp8266') || n.includes('esp8285')) return 'ESP8266';
-    if (n.includes('arduino')) return 'ARDUINO';
-    if (n.includes('raspberry') || n.includes('rpi')) return 'RPI';
-    if (n.includes('hm-10') || n.includes('ble')) return 'BLE';
-    return '';
-  }
+async function setupCharacteristics(info, server) {
+  const profiles = LS.get('bt_profiles', []);
+  const profile = profiles.find(p => {
+    const n = info.name.toLowerCase();
+    return n.includes(p.type) || (p.name && n.includes(p.name.toLowerCase()));
+  }) || profiles.find(p => p.serviceUUID);
 
-  function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  if (!profile || !profile.serviceUUID) return;
 
-  // ─── Check Web Bluetooth support ────────────────────────
-  function checkSupport() {
-    if (!navigator.bluetooth) {
-      $('warningBox').classList.add('show');
-      $('scanBtn').disabled = true;
-      log('Web Bluetooth API not available in this browser.', 'error');
-      return false;
+  try {
+    const svc = await server.getPrimaryService(profile.serviceUUID);
+    if (profile.txUUID) {
+      state.txChar = await svc.getCharacteristic(profile.txUUID);
     }
-    return true;
-  }
-
-  // ─── Scan ────────────────────────────────────────────────
-  // ESP32 detection: filter by name prefix "ESP32" or common ESP32 service UUIDs
-  // Web Bluetooth requires explicit filters — we use name prefix + acceptAllDevices as fallback option
-  async function startScan() {
-    if (!checkSupport()) return;
-
-    $('scanBtn').disabled = true;
-    setStatus('scanning', 'SCANNING...');
-    showScanAnim(true);
-    log('Initiating Bluetooth scan — showing all nearby devices...', 'info');
-
-    try {
-      // Show ALL nearby Bluetooth devices — no filter
-      const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [
-          '0000180a-0000-1000-8000-00805f9b34fb', // Device Information
-          '0000180f-0000-1000-8000-00805f9b34fb', // Battery
-          '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / common ESP32 serial
-          '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '00001800-0000-1000-8000-00805f9b34fb',
-          '00001801-0000-1000-8000-00805f9b34fb',
-        ]
-      });
-
-      addDevice(device);
-      log(`Found: ${device.name || device.id}`, 'success');
-      log('Press CONNECT on the device card to establish a connection.', 'default');
-
-    } catch (err) {
-      if (err.name === 'NotFoundError') {
-        log('No ESP32 device selected or found.', 'warn');
-      } else if (err.name === 'SecurityError') {
-        log('Bluetooth permission denied. Please allow Bluetooth access.', 'error');
-      } else {
-        log(`Scan error: ${err.message}`, 'error');
-      }
-    } finally {
-      $('scanBtn').disabled = false;
-      setStatus('', 'IDLE');
-      showScanAnim(false);
+    if (profile.rxUUID) {
+      state.rxChar = await svc.getCharacteristic(profile.rxUUID);
+      await state.rxChar.startNotifications();
+      state.rxChar.addEventListener('characteristicvaluechanged', onRxData);
+      termLog(`RX notifications started (${profile.rxUUID.slice(0,8)}…)`, 'sys');
     }
+    termLog(`Profile "${profile.name}" applied`, 'sys');
+    loadCommandPresets(profile);
+  } catch(e) {
+    termLog(`Profile setup: ${e.message}`, 'err');
   }
+}
 
-  function addDevice(device) {
-    if (!devices.has(device.id)) {
-      devices.set(device.id, { device, gatt: null, name: device.name || `ESP32 (${device.id.slice(0,8)})`, connected: false });
-      // Listen for disconnection
-      device.addEventListener('gattserverdisconnected', () => onDisconnected(device.id));
+function onRxData(event) {
+  const val = event.target.value;
+  const enc = document.getElementById('encSelect').value;
+  let text;
+  if (enc === 'HEX') {
+    text = Array.from(new Uint8Array(val.buffer)).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  } else {
+    text = new TextDecoder().decode(val);
+  }
+  termLog(text, 'rx');
+}
+
+function runInitScript(deviceName) {
+  const profiles = LS.get('bt_profiles', []);
+  const profile = profiles.find(p => deviceName.toLowerCase().includes(p.type));
+  if (!profile || !profile.initScript) return;
+  const cmds = profile.initScript.split('\n').map(s=>s.trim()).filter(Boolean);
+  cmds.forEach((cmd, i) => setTimeout(() => sendAtCommand(cmd), i * 400));
+}
+
+function onDisconnect(id) {
+  const info = state.devices.get(id); if (!info) return;
+  info.connected = false;
+  if (state.activeId === id) {
+    state.activeId = null;
+    state.txChar = null; state.rxChar = null;
+    document.getElementById('servicesCard').style.display = 'none';
+  }
+  setGlobalStatus('','IDLE');
+  toast(`Disconnected from ${info.name}`, 'info');
+  renderDevices();
+  termLog(`Disconnected from ${info.name}`, 'sys');
+}
+
+function disconnectDevice(id) {
+  const info = state.devices.get(id); if (!info) return;
+  if (info.device.gatt.connected) info.device.gatt.disconnect();
+}
+function disconnectActive() { if (state.activeId) disconnectDevice(state.activeId); }
+
+// ═══════════════════════════════════════════════════════════
+// TERMINAL
+// ═══════════════════════════════════════════════════════════
+function goTerminal(id) {
+  const info = state.devices.get(id); if (!info) return;
+  document.getElementById('termDevName').textContent = info.name;
+  document.querySelectorAll('.nav-item')[1].click();
+}
+
+function termLog(msg, type='sys') {
+  const screen = document.getElementById('termScreen');
+  const ts = getTimestamp();
+  const line = document.createElement('div');
+  line.className = 'term-line';
+  const srcMap = { tx:'TX', rx:'RX', sys:'SYS', err:'ERR' };
+  const msgCls = type === 'rx' ? 'rx-msg' : type === 'err' ? 'err-msg' : '';
+  line.innerHTML = `<span class="term-ts">${ts}</span><span class="term-src ${type}">${srcMap[type]||'SYS'}</span><span class="term-msg ${msgCls}">${esc(msg)}</span>`;
+  screen.appendChild(line);
+  // trim to max
+  const max = +(document.getElementById('maxLines').value) || 500;
+  while (screen.children.length > max) screen.removeChild(screen.firstChild);
+  // autoscroll
+  if (document.getElementById('autoScrollToggle').checked) {
+    screen.scrollTop = screen.scrollHeight;
+  }
+}
+
+function getTimestamp() {
+  const fmt = document.getElementById('tsFormat').value;
+  if (fmt === 'none') return '';
+  if (fmt === 'ms') return `+${Date.now() - state.startTime}ms`;
+  const d = new Date();
+  return d.toTimeString().slice(0,8);
+}
+
+function termKeydown(e) {
+  const input = document.getElementById('termInput');
+  if (e.key === 'Enter') { sendTermMessage(); return; }
+  if (e.key === 'ArrowUp') {
+    if (state.historyIndex < state.termHistory.length - 1) {
+      state.historyIndex++;
+      input.value = state.termHistory[state.termHistory.length - 1 - state.historyIndex];
     }
-    renderDevices();
+    e.preventDefault();
   }
+  if (e.key === 'ArrowDown') {
+    if (state.historyIndex > 0) {
+      state.historyIndex--;
+      input.value = state.termHistory[state.termHistory.length - 1 - state.historyIndex];
+    } else { state.historyIndex = -1; input.value = ''; }
+    e.preventDefault();
+  }
+}
 
-  // ─── Connect ─────────────────────────────────────────────
-  async function connectDevice(id) {
-    const info = devices.get(id);
-    if (!info) return;
+async function sendTermMessage() {
+  const input = document.getElementById('termInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  state.historyIndex = -1;
+  state.termHistory.push(msg);
+  if (state.termHistory.length > 100) state.termHistory.shift();
+  await sendRaw(msg);
+}
 
-    log(`Connecting to ${info.name}...`, 'info');
-    setStatus('scanning', 'CONNECTING...');
+async function sendAtCommand(cmd) {
+  await sendRaw(cmd);
+}
 
-    // Disable all connect buttons
-    document.querySelectorAll('.btn-sm').forEach(b => b.disabled = true);
-
-    try {
-      const server = await info.device.gatt.connect();
-      info.gatt = server;
-      info.connected = true;
-      activeDevice = id;
-
-      setStatus('connected', 'CONNECTED');
-      log(`Connected to ${info.name}!`, 'success');
-      renderDevices();
-      showConnectedPanel(info, server);
-
-    } catch (err) {
-      log(`Connection failed: ${err.message}`, 'error');
-      setStatus('', 'IDLE');
-      renderDevices();
+async function sendRaw(msg) {
+  termLog(msg, 'tx');
+  if (!state.txChar) {
+    termLog('No TX characteristic — device not connected or profile missing', 'err');
+    return;
+  }
+  const lineEnd = document.getElementById('lineEndSelect').value;
+  const enc = document.getElementById('encSelect').value;
+  const fullMsg = msg + lineEnd.replace('\\n','\n').replace('\\r','\r');
+  try {
+    let data;
+    if (enc === 'HEX') {
+      const bytes = fullMsg.replace(/\s/g,'').match(/.{1,2}/g)||[];
+      data = new Uint8Array(bytes.map(b => parseInt(b,16)));
+    } else {
+      data = new TextEncoder().encode(fullMsg);
     }
+    await state.txChar.writeValue(data);
+  } catch(e) {
+    termLog('Send error: ' + e.message, 'err');
   }
+}
 
-  // ─── Show connected panel ────────────────────────────────
-  async function showConnectedPanel(info, server) {
-    const panel = $('connectedPanel');
-    panel.classList.remove('hidden');
-    $('connName').textContent = info.name;
-    $('connSub').textContent = `GATT SERVER · ${info.device.id.slice(0, 16)}...`;
-    $('servicesGrid').innerHTML = '<div class="service-chip"><div class="service-label">Status</div>Discovering…</div>';
+function clearTerminal() {
+  document.getElementById('termScreen').innerHTML =
+    '<div class="term-line"><span class="term-ts">–</span><span class="term-src sys">SYS</span><span class="term-msg">Terminal cleared.</span></div>';
+}
 
-    try {
-      const services = await server.getPrimaryServices();
-      if (services.length === 0) {
-        $('servicesGrid').innerHTML = '<div class="service-chip"><div class="service-label">Info</div>No services found</div>';
-        log('No GATT services found on this device.', 'warn');
-        return;
-      }
+function exportLog() {
+  const lines = Array.from(document.getElementById('termScreen').querySelectorAll('.term-line'))
+    .map(l => l.textContent).join('\n');
+  dl(lines, 'bt-terminal-log.txt', 'text/plain');
+  toast('Log exported', 'success');
+}
 
-      $('servicesGrid').innerHTML = '';
-      for (const svc of services) {
-        const name = resolveServiceName(svc.uuid);
-        const chip = document.createElement('div');
-        chip.className = 'service-chip';
-        chip.innerHTML = `<div class="service-label">${escHtml(name.label)}</div>${escHtml(svc.uuid)}`;
-        $('servicesGrid').appendChild(chip);
-      }
-      log(`Discovered ${services.length} GATT service(s).`, 'success');
-
-    } catch (err) {
-      $('servicesGrid').innerHTML = `<div class="service-chip"><div class="service-label">Error</div>${escHtml(err.message)}</div>`;
-      log(`Service discovery error: ${err.message}`, 'error');
-    }
+function loadCommandPresets(profile) {
+  const bar = document.getElementById('cmdPresets');
+  bar.innerHTML = '';
+  if (!profile.commands) return;
+  const cmds = profile.commands.split('\n').map(s=>s.trim()).filter(Boolean);
+  for (const c of cmds) {
+    const [label, ...rest] = c.split('=');
+    const cmd = rest.join('=') || label;
+    const btn = document.createElement('button');
+    btn.className = 'cmd-preset-btn';
+    btn.textContent = label.trim();
+    btn.onclick = () => sendAtCommand(cmd.trim());
+    bar.appendChild(btn);
   }
+}
 
-  // ─── Known service name map ───────────────────────────────
-  const SERVICE_NAMES = {
-    '0000180a-0000-1000-8000-00805f9b34fb': { label: 'Device Info' },
-    '0000180f-0000-1000-8000-00805f9b34fb': { label: 'Battery' },
-    '00001800-0000-1000-8000-00805f9b34fb': { label: 'Generic Access' },
-    '00001801-0000-1000-8000-00805f9b34fb': { label: 'Generic Attribute' },
-    '0000ffe0-0000-1000-8000-00805f9b34fb': { label: 'Serial (HM-10)' },
-    '6e400001-b5a3-f393-e0a9-e50e24dcca9e': { label: 'Nordic UART' },
-    '0000ff00-0000-1000-8000-00805f9b34fb': { label: 'Custom FF00' },
-    '00001810-0000-1000-8000-00805f9b34fb': { label: 'Blood Pressure' },
-    '0000181c-0000-1000-8000-00805f9b34fb': { label: 'User Data' },
+// ═══════════════════════════════════════════════════════════
+// PROFILES
+// ═══════════════════════════════════════════════════════════
+function renderProfiles() {
+  const profiles = LS.get('bt_profiles', []);
+  const grid = document.getElementById('profileGrid');
+  grid.innerHTML = '';
+  document.getElementById('profBadge').textContent = profiles.length;
+  if (profiles.length === 0) {
+    grid.innerHTML = '<div class="empty-msg" style="grid-column:1/-1">No profiles yet.<br/>Create a profile to save command sets and settings per device type.</div>';
+    return;
+  }
+  for (const p of profiles) {
+    const card = document.createElement('div');
+    card.className = 'profile-card' + (p.active ? ' active-profile' : '');
+    card.innerHTML = `
+      <div class="profile-card-name">
+        ${esc(p.name)}
+        ${p.active ? '<span class="profile-active-badge">ACTIVE</span>' : ''}
+      </div>
+      <div class="profile-card-desc">${esc(p.desc || '–')}</div>
+      <div class="profile-card-meta">
+        <span class="tag tag-esp">${esc(p.type.toUpperCase())}</span>
+        <span class="tag tag-muted">${esc(p.encoding || 'UTF-8')}</span>
+        ${p.commands ? `<span class="tag tag-muted">${p.commands.split('\n').filter(Boolean).length} cmds</span>` : ''}
+      </div>
+      <div class="profile-card-actions">
+        <button class="btn btn-primary btn-sm" onclick="activateProfile('${p.id}')">Use</button>
+        <button class="btn btn-ghost btn-sm" onclick="editProfile('${p.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProfile('${p.id}')">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+
+function openProfileModal(reset=true) {
+  if (reset) {
+    state.editingProfileId = null;
+    document.getElementById('modalTitle').textContent = 'New Profile';
+    ['pName','pDesc','pServiceUUID','pTxUUID','pRxUUID','pCommands','pInitScript','pNotes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pType').value = 'esp32';
+    document.getElementById('pEncoding').value = 'UTF-8';
+    document.getElementById('pLineEnd').value = '\\n';
+  }
+  document.getElementById('profileModal').classList.add('open');
+}
+function closeProfileModal() {
+  document.getElementById('profileModal').classList.remove('open');
+}
+function editProfile(id) {
+  const profiles = LS.get('bt_profiles', []);
+  const p = profiles.find(x => x.id === id); if(!p) return;
+  state.editingProfileId = id;
+  document.getElementById('modalTitle').textContent = 'Edit Profile';
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pType').value = p.type;
+  document.getElementById('pDesc').value = p.desc || '';
+  document.getElementById('pEncoding').value = p.encoding || 'UTF-8';
+  document.getElementById('pLineEnd').value = p.lineEnd !== undefined ? p.lineEnd : '\\n';
+  document.getElementById('pServiceUUID').value = p.serviceUUID || '';
+  document.getElementById('pTxUUID').value = p.txUUID || '';
+  document.getElementById('pRxUUID').value = p.rxUUID || '';
+  document.getElementById('pCommands').value = p.commands || '';
+  document.getElementById('pInitScript').value = p.initScript || '';
+  document.getElementById('pNotes').value = p.notes || '';
+  openProfileModal(false);
+}
+function saveProfile() {
+  const name = document.getElementById('pName').value.trim();
+  if (!name) { toast('Profile name required', 'error'); return; }
+  const profiles = LS.get('bt_profiles', []);
+  const p = {
+    id: state.editingProfileId || ('p' + Date.now()),
+    name,
+    type:        document.getElementById('pType').value,
+    desc:        document.getElementById('pDesc').value.trim(),
+    encoding:    document.getElementById('pEncoding').value,
+    lineEnd:     document.getElementById('pLineEnd').value,
+    serviceUUID: document.getElementById('pServiceUUID').value.trim(),
+    txUUID:      document.getElementById('pTxUUID').value.trim(),
+    rxUUID:      document.getElementById('pRxUUID').value.trim(),
+    commands:    document.getElementById('pCommands').value.trim(),
+    initScript:  document.getElementById('pInitScript').value.trim(),
+    notes:       document.getElementById('pNotes').value.trim(),
+    active: false,
   };
-
-  function resolveServiceName(uuid) {
-    return SERVICE_NAMES[uuid.toLowerCase()] || { label: 'Custom Service' };
+  if (state.editingProfileId) {
+    const idx = profiles.findIndex(x => x.id === state.editingProfileId);
+    if (idx !== -1) { p.active = profiles[idx].active; profiles[idx] = p; }
+  } else {
+    profiles.push(p);
   }
-
-  // ─── Disconnect ───────────────────────────────────────────
-  async function disconnectDevice(id) {
-    const info = devices.get(id);
-    if (!info) return;
-    if (info.device.gatt.connected) {
-      info.device.gatt.disconnect();
-    }
+  LS.set('bt_profiles', profiles);
+  renderProfiles();
+  closeProfileModal();
+  toast('Profile saved', 'success');
+}
+function activateProfile(id) {
+  const profiles = LS.get('bt_profiles', []);
+  profiles.forEach(p => p.active = p.id === id);
+  LS.set('bt_profiles', profiles);
+  // apply to terminal
+  const p = profiles.find(x => x.id === id);
+  if (p) {
+    document.getElementById('encSelect').value = p.encoding || 'UTF-8';
+    document.getElementById('lineEndSelect').value = p.lineEnd !== undefined ? p.lineEnd : '\n';
+    loadCommandPresets(p);
   }
+  renderProfiles();
+  toast(`Profile "${p?.name}" activated`, 'success');
+}
+function deleteProfile(id) {
+  if (!confirm('Delete this profile?')) return;
+  const profiles = LS.get('bt_profiles', []).filter(p => p.id !== id);
+  LS.set('bt_profiles', profiles);
+  renderProfiles();
+  toast('Profile deleted', 'info');
+}
 
-  function disconnectActive() {
-    if (activeDevice) disconnectDevice(activeDevice);
+// ═══════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════
+function setGlobalStatus(type, text) {
+  const dot = document.getElementById('globalDot');
+  dot.className = 'dot' + (type ? ' ' + type : '');
+  document.getElementById('globalStatus').textContent = text;
+}
+
+function toast(msg, type='info') {
+  const stack = document.getElementById('toastStack');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  el.innerHTML = `<span>${icons[type]||'·'}</span> ${esc(msg)}`;
+  stack.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(20px)'; el.style.transition='.3s'; setTimeout(()=>el.remove(),300); }, 3000);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function dl(content, filename, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename; a.click();
+}
+
+const SERVICE_NAMES = {
+  '0000180a-0000-1000-8000-00805f9b34fb':'Device Information',
+  '0000180f-0000-1000-8000-00805f9b34fb':'Battery Service',
+  '00001800-0000-1000-8000-00805f9b34fb':'Generic Access',
+  '00001801-0000-1000-8000-00805f9b34fb':'Generic Attribute',
+  '0000ffe0-0000-1000-8000-00805f9b34fb':'Serial (HM-10)',
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e':'Nordic UART Service',
+  '0000ff00-0000-1000-8000-00805f9b34fb':'Custom FF00',
+};
+function resolveService(uuid) {
+  return SERVICE_NAMES[uuid.toLowerCase()] || 'Custom Service';
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+(function init() {
+  if (!navigator.bluetooth) {
+    toast('Web Bluetooth not supported — use Chrome or Edge', 'error');
+    document.getElementById('scanBtn') && (document.getElementById('scanBtn').disabled = true);
   }
-
-  function onDisconnected(id) {
-    const info = devices.get(id);
-    if (!info) return;
-    info.connected = false;
-    if (activeDevice === id) {
-      activeDevice = null;
-      $('connectedPanel').classList.add('hidden');
-    }
-    setStatus('', 'IDLE');
-    log(`Disconnected from ${info.name}.`, 'warn');
-    renderDevices();
+  loadSettings();
+  renderProfiles();
+  renderDevices();
+  // seed some default profiles if empty
+  const profiles = LS.get('bt_profiles', []);
+  if (profiles.length === 0) {
+    const defaults = [
+      {
+        id:'default_esp32', name:'ESP32 Nordic UART', type:'esp32',
+        desc:'Standard ESP32 BLE UART via Nordic UART Service',
+        encoding:'UTF-8', lineEnd:'\\n',
+        serviceUUID:'6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+        txUUID:'6e400002-b5a3-f393-e0a9-e50e24dcca9e',
+        rxUUID:'6e400003-b5a3-f393-e0a9-e50e24dcca9e',
+        commands:'AT Ping=AT\nVersion=AT+GMR\nReset=AT+RST\nLED On=LED1\nLED Off=LED0\nStatus=STATUS',
+        initScript:'AT', notes:'Works with NimBLE / Arduino BLE UART sketches.',
+        active: false,
+      },
+      {
+        id:'default_hm10', name:'HM-10 BLE Module', type:'hm10',
+        desc:'Classic HM-10 / CC41-A BLE serial module',
+        encoding:'UTF-8', lineEnd:'\\r\\n',
+        serviceUUID:'0000ffe0-0000-1000-8000-00805f9b34fb',
+        txUUID:'0000ffe1-0000-1000-8000-00805f9b34fb',
+        rxUUID:'0000ffe1-0000-1000-8000-00805f9b34fb',
+        commands:'AT Ping=AT\nName?=AT+NAME?\nBaud?=AT+BAUD?\nRole?=AT+ROLE?\nReset=AT+RESET',
+        initScript:'AT', notes:'TX and RX share same characteristic on HM-10.',
+        active: false,
+      },
+      {
+        id:'default_custom', name:'Generic BLE Device', type:'custom',
+        desc:'Generic profile — fill in your own UUIDs',
+        encoding:'UTF-8', lineEnd:'\\n',
+        serviceUUID:'', txUUID:'', rxUUID:'',
+        commands:'Hello=hello\nPing=ping\nStatus=status',
+        initScript:'', notes:'',
+        active: false,
+      },
+    ];
+    LS.set('bt_profiles', defaults);
+    renderProfiles();
   }
-
-  // ─── Clear ────────────────────────────────────────────────
-  function clearDevices() {
-    for (const [id, info] of devices) {
-      if (info.connected) disconnectDevice(id);
-    }
-    devices.clear();
-    activeDevice = null;
-    $('connectedPanel').classList.add('hidden');
-    renderDevices();
-    setStatus('', 'IDLE');
-    log('Device list cleared.', 'default');
-  }
-
-  // ─── Init ────────────────────────────────────────────────
-  checkSupport();
-  log('Bluetooth Scanner ready. Press SCAN to discover all nearby devices.', 'info');
+})();
 </script>
 </body>
 </html>
